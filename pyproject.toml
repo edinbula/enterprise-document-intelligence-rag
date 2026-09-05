@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "enterprise-document-intelligence-rag"
+version = "0.1.0.dev0"
+description = "A cost-safe enterprise document intelligence and hybrid RAG platform for AWS and Databricks."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+authors = [
+  { name = "Edin Bula" }
+]
+dependencies = [
+  "pydantic>=2.10,<3",
+  "pydantic-settings>=2.7,<3",
+  "rich>=13.9,<15",
+  "typer>=0.15,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "bandit>=1.8,<2",
+  "build>=1.2,<2",
+  "mypy>=1.14,<2",
+  "pre-commit>=4,<5",
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.9,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/enterprise_document_rag"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-config --strict-markers"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["enterprise_document_rag"]
+mypy_path = "src"
+
+[tool.coverage.run]
+branch = true
+source = ["enterprise_document_rag"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 90
