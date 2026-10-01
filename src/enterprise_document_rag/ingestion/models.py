@@ -38,9 +38,14 @@ class IngestionStatus(StrEnum):
 class SourceLocation(BaseModel):
     """Stable location of a source document."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        str_strip_whitespace=True,
+    )
 
     system: SourceSystem
+    source_id: str = Field(min_length=1)
     uri: str = Field(min_length=1)
     bucket: str | None = None
     object_key: str | None = None
@@ -56,7 +61,11 @@ class SourceLocation(BaseModel):
 class DocumentMetadata(BaseModel):
     """Traceable metadata recorded for every acquired document version."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        str_strip_whitespace=True,
+    )
 
     document_id: UUID
     version_id: UUID
@@ -83,13 +92,19 @@ class DocumentMetadata(BaseModel):
 
     @field_validator("access_groups")
     @classmethod
-    def validate_access_groups(cls, groups: tuple[str, ...]) -> tuple[str, ...]:
+    def validate_access_groups(
+        cls,
+        groups: tuple[str, ...],
+    ) -> tuple[str, ...]:
         """Require unique, non-empty authorization groups."""
         normalized = tuple(group.strip() for group in groups)
+
         if not normalized or any(not group for group in normalized):
             raise ValueError("access_groups must contain non-empty values")
+
         if len(set(normalized)) != len(normalized):
             raise ValueError("access_groups must be unique")
+
         return normalized
 
     @model_validator(mode="after")
@@ -97,8 +112,11 @@ class DocumentMetadata(BaseModel):
         """Keep timestamps and failure information internally consistent."""
         if self.modified_at < self.created_at:
             raise ValueError("modified_at cannot be earlier than created_at")
+
         if self.status is IngestionStatus.FAILED and not self.failure_reason:
             raise ValueError("failed ingestion requires failure_reason")
+
         if self.status is not IngestionStatus.FAILED and self.failure_reason:
             raise ValueError("failure_reason is only valid for failed ingestion")
+
         return self
