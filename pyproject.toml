@@ -17,6 +17,8 @@ dependencies = [
   "rich>=13.9,<15",
   "typer>=0.15,<1",
 ]
+[project.scripts]
+document-rag = "enterprise_document_rag.cli:app"
 
 [project.optional-dependencies]
 dev = [
