@@ -1,0 +1,54 @@
+SYNTHETIC ACCESS CONTROL POLICY
+
+Document ID: POL-SEC-001
+Version: 2.1
+Owner: Information Security
+Classification: Internal
+Effective date: 2026-01-15
+Review date: 2027-01-15
+
+1. Purpose
+
+This policy defines access-control requirements for the fictional Northstar
+Financial Services organization. It is synthetic demonstration content and
+does not describe a real company or production environment.
+
+2. Access principles
+
+Access to information systems must follow least-privilege and need-to-know
+principles. Each user must receive only the permissions required for their
+approved responsibilities.
+
+3. Account management
+
+Every account must be assigned to one identifiable person or approved service.
+Shared interactive accounts are prohibited. Service accounts must have a
+documented owner, purpose, and review date.
+
+4. Authentication
+
+Administrative accounts must use multi-factor authentication. Passwords and
+other credentials must not be stored in source code, documentation, tickets,
+or unencrypted configuration files.
+
+5. Authorization reviews
+
+Managers and system owners must review privileged access every 90 days.
+Access that is no longer justified must be removed within one business day.
+
+6. Termination and role changes
+
+Access for terminated personnel must be disabled immediately after the
+authorized termination event. Access affected by a role change must be
+reviewed within one business day.
+
+7. Audit evidence
+
+Authentication events, authorization changes, and privileged operations must
+produce traceable audit records. Audit records must include the actor, action,
+target, timestamp, and outcome.
+
+8. Exceptions
+
+Exceptions require documented approval from Information Security, a business
+owner, an expiration date, and compensating controls.
