@@ -1,4 +1,6 @@
+import re
 from pathlib import Path
+from typing import Protocol
 
 from typer.testing import CliRunner
 
@@ -6,6 +8,23 @@ from enterprise_document_rag.cli import app
 from enterprise_document_rag.ingestion import read_manifest
 
 runner = CliRunner()
+
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+class CliResult(Protocol):
+    """Terminal result exposing captured command output."""
+
+    @property
+    def output(self) -> str:
+        """Return captured standard output and error text."""
+        ...
+
+
+def normalize_cli_output(result: CliResult) -> str:
+    """Remove terminal styling and normalize wrapped whitespace."""
+    without_ansi = _ANSI_ESCAPE.sub("", result.output)
+    return " ".join(without_ansi.split())
 
 
 def create_source_document(root: Path) -> Path:
@@ -108,8 +127,10 @@ def test_refuses_to_replace_existing_manifest(
 
     assert first.exit_code == 0
     assert second.exit_code == 2
-    assert "manifest already exists" in second.output
-    assert "use --overwrite" in second.output
+
+    output_text = normalize_cli_output(second)
+    assert "manifest already exists" in output_text
+    assert "use --overwrite" in output_text
 
 
 def test_overwrites_existing_manifest_when_requested(
@@ -156,7 +177,7 @@ def test_rejects_empty_source_identity(
     )
 
     assert result.exit_code == 2
-    assert "source ID must not be empty" in result.output
+    assert "source ID must not be empty" in normalize_cli_output(result)
 
 
 def test_rejects_missing_source_directory(
@@ -171,7 +192,7 @@ def test_rejects_missing_source_directory(
     )
 
     assert result.exit_code == 2
-    assert "does not exist" in result.output
+    assert "does not exist" in normalize_cli_output(result)
 
 
 def test_displays_command_help() -> None:
@@ -184,7 +205,9 @@ def test_displays_command_help() -> None:
     )
 
     assert result.exit_code == 0
-    assert "Directory containing source documents" in result.stdout
-    assert "--source-id" in result.stdout
-    assert "--access-group" in result.stdout
-    assert "--overwrite" in result.stdout
+
+    output_text = normalize_cli_output(result)
+    assert "Directory containing source documents" in output_text
+    assert "--source-id" in output_text
+    assert "--access-group" in output_text
+    assert "--overwrite" in output_text
