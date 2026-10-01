@@ -16,6 +16,10 @@ from enterprise_document_rag.ingestion.models import (
     SourceLocation,
     SourceSystem,
 )
+from enterprise_document_rag.ingestion.persistence import (
+    read_manifest,
+    write_manifest,
+)
 
 __all__ = [
     "DocumentFormat",
@@ -28,4 +32,6 @@ __all__ = [
     "build_local_manifest",
     "build_local_metadata",
     "discover_local_documents",
+    "read_manifest",
+    "write_manifest",
 ]
