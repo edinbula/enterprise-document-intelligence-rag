@@ -16,6 +16,9 @@ from enterprise_document_rag.processing.csv_parser import (
 from enterprise_document_rag.processing.models import (
     ProcessedDocument,
 )
+from enterprise_document_rag.processing.pdf_parser import (
+    parse_pdf,
+)
 from enterprise_document_rag.processing.registry import (
     DEFAULT_PARSER_REGISTRY,
     ParserRegistry,
@@ -56,7 +59,7 @@ def create_csv_source(
 ) -> tuple[Path, DocumentMetadata]:
     document = tmp_path / "register.csv"
     document.write_text(
-        ("document_id,title\nPOL-001,Access Control Policy\n"),
+        "document_id,title\nPOL-001,Access Control Policy\n",
         encoding="utf-8",
     )
     metadata = build_local_metadata(
@@ -93,12 +96,14 @@ class RecordingParser:
 def test_default_registry_exposes_stable_supported_formats() -> None:
     assert DEFAULT_PARSER_REGISTRY.supported_formats == (
         DocumentFormat.CSV,
+        DocumentFormat.PDF,
         DocumentFormat.TXT,
     )
 
 
 def test_returns_registered_parser() -> None:
     assert DEFAULT_PARSER_REGISTRY.get_parser(DocumentFormat.CSV) is parse_csv
+    assert DEFAULT_PARSER_REGISTRY.get_parser(DocumentFormat.PDF) is parse_pdf
     assert DEFAULT_PARSER_REGISTRY.get_parser(DocumentFormat.TXT) is parse_plain_text
 
 
@@ -115,7 +120,7 @@ def test_routes_plain_text_through_default_registry(
 
     assert processed.processor.name == "plain-text-parser"
     assert processed.processed_at == PROCESSED_AT
-    assert processed.segments[0].text == ("Synthetic access-control policy.")
+    assert processed.segments[0].text == "Synthetic access-control policy."
 
 
 def test_routes_csv_through_default_registry(
@@ -173,12 +178,14 @@ def test_supported_formats_use_lexical_order() -> None:
     registry = ParserRegistry(
         {
             DocumentFormat.TXT: parse_plain_text,
+            DocumentFormat.PDF: parse_pdf,
             DocumentFormat.CSV: parse_csv,
         }
     )
 
     assert registry.supported_formats == (
         DocumentFormat.CSV,
+        DocumentFormat.PDF,
         DocumentFormat.TXT,
     )
 
@@ -197,14 +204,16 @@ def test_rejects_unsupported_document_format(
     document, metadata = create_text_source(tmp_path)
     unsupported = metadata.model_copy(
         update={
-            "document_format": DocumentFormat.PDF,
-            "media_type": "application/pdf",
+            "document_format": DocumentFormat.DOCX,
+            "media_type": (
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
         }
     )
 
     with pytest.raises(
         ValueError,
-        match="unsupported document format: pdf",
+        match="unsupported document format: docx",
     ):
         parse_document(
             document,
