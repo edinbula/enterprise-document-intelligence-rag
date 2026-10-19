@@ -7,6 +7,10 @@ from enterprise_document_rag.processing.models import (
     SegmentKind,
     SegmentLocation,
 )
+from enterprise_document_rag.processing.text import (
+    normalize_plain_text,
+    parse_plain_text,
+)
 
 __all__ = [
     "NormalizedSegment",
@@ -14,4 +18,6 @@ __all__ = [
     "ProcessorIdentity",
     "SegmentKind",
     "SegmentLocation",
+    "normalize_plain_text",
+    "parse_plain_text",
 ]
