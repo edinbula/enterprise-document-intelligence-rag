@@ -1,4 +1,4 @@
-"""Command-line interface for enterprise document ingestion."""
+"""Command-line interface for enterprise document workflows."""
 
 from pathlib import Path
 from typing import Annotated
@@ -7,19 +7,24 @@ import typer
 
 from enterprise_document_rag.ingestion import (
     build_local_manifest,
+    read_manifest,
     write_manifest,
+)
+from enterprise_document_rag.processing import (
+    process_local_manifest,
+    write_processing_batch,
 )
 
 app = typer.Typer(
     name="document-rag",
-    help="Ingest enterprise documents for processing and retrieval.",
+    help="Ingest and process enterprise documents for retrieval.",
     no_args_is_help=True,
 )
 
 
 @app.callback()
 def main() -> None:
-    """Manage enterprise document-ingestion workflows."""
+    """Manage enterprise document workflows."""
 
 
 @app.command("ingest-local")
@@ -88,7 +93,7 @@ def ingest_local(
         )
     except FileExistsError as error:
         raise typer.BadParameter(
-            f"manifest already exists: {output}; use --overwrite to replace it",
+            (f"manifest already exists: {output}; use --overwrite to replace it"),
             param_hint="--output",
         ) from error
 
@@ -96,3 +101,71 @@ def ingest_local(
     typer.echo(f"Source: {manifest.source_id}")
     typer.echo(f"Documents: {manifest.document_count}")
     typer.echo(f"Failures: {manifest.failure_count}")
+
+
+@app.command("process-local")
+def process_local(
+    root: Annotated[
+        Path,
+        typer.Argument(
+            exists=True,
+            file_okay=False,
+            dir_okay=True,
+            readable=True,
+            resolve_path=True,
+            help="Directory containing the ingested source documents.",
+        ),
+    ],
+    manifest_path: Annotated[
+        Path,
+        typer.Option(
+            "--manifest",
+            "-m",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+            help="Validated ingestion-manifest JSON file.",
+        ),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option(
+            "--output",
+            "-o",
+            help="Destination processing-batch JSON file.",
+        ),
+    ] = Path("artifacts/processing-batch.json"),
+    overwrite: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite",
+            help="Replace an existing processing batch.",
+        ),
+    ] = False,
+) -> None:
+    """Process a local ingestion manifest into normalized documents."""
+    manifest = read_manifest(manifest_path)
+    batch = process_local_manifest(
+        root,
+        manifest,
+    )
+
+    try:
+        destination = write_processing_batch(
+            batch,
+            output,
+            overwrite=overwrite,
+        )
+    except FileExistsError as error:
+        raise typer.BadParameter(
+            (f"processing batch already exists: {output}; use --overwrite to replace it"),
+            param_hint="--output",
+        ) from error
+
+    typer.echo(f"Processing batch: {destination}")
+    typer.echo(f"Manifest: {batch.manifest_id}")
+    typer.echo(f"Documents: {batch.document_count}")
+    typer.echo(f"Processing failures: {batch.failure_count}")
+    typer.echo(f"Ingestion failures: {batch.ingestion_failure_count}")

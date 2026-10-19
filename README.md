@@ -10,19 +10,20 @@ workloads.
 
 This project demonstrates the engineering foundations of an enterprise
 document-intelligence platform. It is being developed incrementally from a
-fully local ingestion pipeline toward governed document processing, Delta
+fully local ingestion and processing pipeline toward governed lakehouse
 datasets, hybrid retrieval, grounded generation, and measurable RAG quality.
 
 The current implementation discovers local enterprise documents, generates
-stable document and version identities, preserves authorization metadata, and
-writes validated ingestion manifests for downstream processing.
+stable document and version identities, preserves authorization metadata,
+writes validated ingestion manifests, parses TXT and CSV documents into
+normalized records, and persists recoverable processing-batch artifacts.
 
 Only synthetic documents are included. No customer, employer, or confidential
 data is used.
 
 ## Current capabilities
 
-Phase 1 currently provides:
+The ingestion foundation currently provides:
 
 - Typed Pydantic contracts for document metadata and source locations
 - Local discovery of PDF, DOCX, CSV, TXT, JPEG, and PNG files
@@ -32,15 +33,31 @@ Phase 1 currently provides:
 - UTC-aware creation and modification timestamps
 - Access-group metadata for future retrieval authorization
 - Deterministic document ordering
-- Recoverable per-document failure records
+- Recoverable per-document ingestion failures
 - Validated ingestion manifests
 - Safe JSON manifest persistence
 - Explicit overwrite protection
-- Installed `document-rag` command-line interface
 - Synthetic policy and document-register examples
-- Strict static analysis and automated tests
 
-AWS and Databricks adapters are planned but are not yet implemented.
+The document-processing foundation currently provides:
+
+- Immutable normalized document and segment contracts
+- Deterministic plain-text parsing
+- UTF-8 and UTF-8 BOM handling
+- Unicode NFC and line-ending normalization
+- Paragraph extraction with source-line ranges
+- Deterministic CSV parsing
+- Header validation and stable table-row segments
+- Typed parser protocols and a deterministic parser registry
+- Recoverable document-level processing failures
+- Stable processing-batch identities
+- Validated JSON processing-batch persistence
+- Atomic overwrite behavior
+- End-to-end `ingest-local` and `process-local` CLI commands
+- Strict static analysis, security scanning, and automated tests
+
+PDF and DOCX parsing, OCR, cloud adapters, lakehouse datasets, retrieval, and
+generation are planned but are not yet implemented.
 
 ## Architecture direction
 
@@ -49,15 +66,16 @@ flowchart TD
     A["Local or S3-compatible documents"] --> B["Acquisition adapters"]
     B --> C["Validated ingestion manifest"]
     C --> D["Parsing and normalization"]
-    D --> E["Bronze, Silver, and Gold datasets"]
-    E --> F["Keyword and vector indexes"]
-    F --> G["Hybrid retrieval and RAG API"]
-    G --> H["Evaluation and citations"]
+    D --> E["Processing batch"]
+    E --> F["Bronze, Silver, and Gold datasets"]
+    F --> G["Keyword and vector indexes"]
+    G --> H["Hybrid retrieval and RAG API"]
+    H --> I["Evaluation and citations"]
 ```
 
-The local and cloud adapters will share the same typed ingestion boundary.
-This allows the project to develop and test its core behavior without requiring
-paid cloud infrastructure.
+The local and cloud adapters will share typed ingestion and processing
+boundaries. This allows the project to develop and test its core behavior
+without requiring paid cloud infrastructure.
 
 ## Zero-cost development policy
 
@@ -101,12 +119,14 @@ On Windows PowerShell, activate the environment with:
 .\.venv\Scripts\Activate.ps1
 ```
 
-## Local ingestion demonstration
+## Local ingestion and processing demonstration
 
 The repository includes two synthetic enterprise documents:
 
 - `data/synthetic/policies/access-control-policy.txt`
 - `data/synthetic/registers/document-register.csv`
+
+### Ingest the documents
 
 Generate a validated ingestion manifest:
 
@@ -115,7 +135,8 @@ document-rag ingest-local data/synthetic \
   --output artifacts/synthetic-ingestion-manifest.json \
   --source-id northstar-synthetic-documents \
   --access-group engineering \
-  --access-group security
+  --access-group security \
+  --overwrite
 ```
 
 PowerShell equivalent:
@@ -126,7 +147,8 @@ document-rag ingest-local `
     --output artifacts\synthetic-ingestion-manifest.json `
     --source-id northstar-synthetic-documents `
     --access-group engineering `
-    --access-group security
+    --access-group security `
+    --overwrite
 ```
 
 Expected summary:
@@ -137,21 +159,80 @@ Documents: 2
 Failures: 0
 ```
 
-The generated JSON contains:
+The ingestion manifest contains:
 
 - Manifest identity
 - Source identity and source-system type
 - Document and version identities
-- Relative source URI
-- Document format and media type
-- File size and SHA-256 content hash
+- Relative source URIs
+- Document formats and media types
+- File sizes and SHA-256 content hashes
 - UTC timestamps
 - Access groups
-- Processing status
+- Ingestion status
 - Recoverable ingestion failures
 
-Existing manifests are not overwritten by default. Use `--overwrite` only when
-replacement is intentional.
+### Process the ingestion manifest
+
+Convert the acquired TXT and CSV documents into normalized records:
+
+```bash
+document-rag process-local data/synthetic \
+  --manifest artifacts/synthetic-ingestion-manifest.json \
+  --output artifacts/synthetic-processing-batch.json \
+  --overwrite
+```
+
+PowerShell equivalent:
+
+```powershell
+document-rag process-local `
+    data\synthetic `
+    --manifest artifacts\synthetic-ingestion-manifest.json `
+    --output artifacts\synthetic-processing-batch.json `
+    --overwrite
+```
+
+Expected summary:
+
+```text
+Documents: 2
+Processing failures: 0
+Ingestion failures: 0
+```
+
+With the current synthetic fixtures, the processing batch contains:
+
+```text
+Documents: 2
+Segments: 23
+access-control-policy.txt: 18 segments
+document-register.csv: 5 segments
+```
+
+The processing artifact preserves:
+
+- The originating manifest identity
+- Document and version traceability
+- Source URIs and authorization groups
+- Parser names and versions
+- UTC processing timestamps
+- Stable segment identities and ordinals
+- Plain-text source-line ranges
+- CSV record locations and attributes
+- Recoverable processing failures
+- Upstream ingestion-failure counts
+
+Validate the generated processing artifact directly:
+
+```bash
+python -c "from pathlib import Path; from enterprise_document_rag.processing import read_processing_batch; b = read_processing_batch(Path('artifacts/synthetic-processing-batch.json')); print(f'Batch: {b.batch_id}'); print(f'Documents: {b.document_count}'); print(f'Failures: {b.failure_count}'); print(f'Segments: {sum(len(d.segments) for d in b.documents)}')"
+```
+
+Existing manifests and processing batches are not overwritten by default. Use
+`--overwrite` only when replacement is intentional.
+
+Generated files beneath `artifacts/` are ignored by Git.
 
 ## Development validation
 
@@ -172,7 +253,9 @@ distribution builds.
 
 ## Planned phases
 
-### Phase 1 — Ingestion foundation
+### Phase 1 - Ingestion foundation
+
+Completed:
 
 - Typed document and source contracts
 - Deterministic local discovery
@@ -182,16 +265,29 @@ distribution builds.
 - Local ingestion CLI
 - Synthetic enterprise documents
 
-### Phase 2 — Document processing
+### Phase 2 - Document processing
 
-- TXT and CSV extraction
-- PDF and DOCX parsing
-- OCR fallback design
-- Normalized document records
-- Chunking with document and page traceability
-- Duplicate-content handling
+Implemented:
 
-### Phase 3 — Lakehouse representation
+- Normalized document and segment contracts
+- Deterministic TXT extraction
+- Deterministic CSV extraction
+- Typed parser registry
+- Recoverable batch processing
+- Stable processing-batch identities
+- Validated JSON batch persistence
+- Local processing CLI
+
+Remaining Phase 2 work:
+
+- PDF parsing
+- DOCX parsing
+- OCR fallback design and adapter boundary
+- Chunking with page and source traceability
+- Duplicate-content handling across sources
+- Expanded processing demonstration fixtures
+
+### Phase 3 - Lakehouse representation
 
 - Bronze, Silver, and Gold schemas
 - Delta-compatible local development
@@ -199,7 +295,7 @@ distribution builds.
 - Incremental processing semantics
 - Data-quality evidence
 
-### Phase 4 — Retrieval
+### Phase 4 - Retrieval
 
 - Keyword retrieval baseline
 - Vector retrieval
@@ -208,7 +304,7 @@ distribution builds.
 - Optional reranking
 - Retrieval evaluation using Recall@K and MRR
 
-### Phase 5 — Grounded RAG
+### Phase 5 - Grounded RAG
 
 - FastAPI query service
 - Evidence-based answers
@@ -217,7 +313,7 @@ distribution builds.
 - Groundedness and citation evaluation
 - Operational logging and monitoring
 
-### Phase 6 — Cloud adapters
+### Phase 6 - Cloud adapters
 
 - AWS S3-compatible source adapter
 - Least-privilege IAM design
@@ -234,10 +330,15 @@ distribution builds.
 - Isolate cloud-specific behavior behind typed interfaces.
 - Measure retrieval independently from generation.
 - Prefer deterministic processing where possible.
+- Record recoverable failures instead of silently dropping documents.
 - Reject silent data loss and uncontrolled overwrites.
 - Keep the complete portfolio workflow reproducible without paid services.
 
 ## Project status
 
-Phase 1 is feature-complete on the current development branch and is being
-prepared for review.
+Phase 1 is complete and merged. Phase 2 now provides deterministic TXT and CSV
+processing, typed parser selection, recoverable batch execution, validated
+processing artifacts, and an end-to-end local command-line workflow.
+
+PDF, DOCX, OCR, chunking, lakehouse representation, retrieval, RAG, and cloud
+adapters remain planned work.
