@@ -206,7 +206,7 @@ def test_continues_after_one_document_fails(
     assert batch.failures[0].source_uri == "local:///zeta.txt"
 
 
-def test_records_unsupported_document_format(
+def test_records_malformed_pdf_failure(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "policy.pdf").write_bytes(b"synthetic pdf")
@@ -222,7 +222,7 @@ def test_records_unsupported_document_format(
     assert batch.failure_count == 1
     assert batch.failures[0].source_uri == "local:///policy.pdf"
     assert batch.failures[0].error_type == "ValueError"
-    assert batch.failures[0].message == "unsupported document format: pdf"
+    assert batch.failures[0].message == "PDF document could not be read"
 
 
 def test_preserves_ingestion_failure_count(

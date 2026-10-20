@@ -12,8 +12,14 @@ from enterprise_document_rag.ingestion.models import (
 from enterprise_document_rag.processing.csv_parser import (
     parse_csv,
 )
+from enterprise_document_rag.processing.docx_parser import (
+    parse_docx,
+)
 from enterprise_document_rag.processing.models import (
     ProcessedDocument,
+)
+from enterprise_document_rag.processing.pdf_parser import (
+    parse_pdf,
 )
 from enterprise_document_rag.processing.text import (
     parse_plain_text,
@@ -91,6 +97,8 @@ class ParserRegistry:
 DEFAULT_PARSER_REGISTRY = ParserRegistry(
     {
         DocumentFormat.CSV: parse_csv,
+        DocumentFormat.DOCX: parse_docx,
+        DocumentFormat.PDF: parse_pdf,
         DocumentFormat.TXT: parse_plain_text,
     }
 )

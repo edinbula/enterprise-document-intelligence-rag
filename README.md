@@ -15,8 +15,8 @@ datasets, hybrid retrieval, grounded generation, and measurable RAG quality.
 
 The current implementation discovers local enterprise documents, generates
 stable document and version identities, preserves authorization metadata,
-writes validated ingestion manifests, parses TXT and CSV documents into
-normalized records, and persists recoverable processing-batch artifacts.
+writes validated ingestion manifests, parses TXT, CSV, PDF, and DOCX documents
+into normalized records, and persists recoverable processing-batch artifacts.
 
 Only synthetic documents are included. No customer, employer, or confidential
 data is used.
@@ -47,17 +47,25 @@ The document-processing foundation currently provides:
 - Unicode NFC and line-ending normalization
 - Paragraph extraction with source-line ranges
 - Deterministic CSV parsing
-- Header validation and stable table-row segments
+- CSV header validation and stable table-row segments
+- Page-aware PDF text extraction
+- Stable PDF page-segment identities and page locations
+- Explicit detection of PDFs requiring OCR
+- Ordered DOCX paragraph and table extraction
+- Preservation of DOCX paragraph styles and table-row locations
+- Stable DOCX segment identities
 - Typed parser protocols and a deterministic parser registry
+- Format routing for TXT, CSV, PDF, and DOCX documents
 - Recoverable document-level processing failures
 - Stable processing-batch identities
 - Validated JSON processing-batch persistence
 - Atomic overwrite behavior
 - End-to-end `ingest-local` and `process-local` CLI commands
+- End-to-end PDF and DOCX pipeline integration testing
 - Strict static analysis, security scanning, and automated tests
 
-PDF and DOCX parsing, OCR, cloud adapters, lakehouse datasets, retrieval, and
-generation are planned but are not yet implemented.
+OCR execution, cloud adapters, lakehouse datasets, retrieval, and generation
+are planned but are not yet implemented.
 
 ## Architecture direction
 
@@ -126,6 +134,10 @@ The repository includes two synthetic enterprise documents:
 - `data/synthetic/policies/access-control-policy.txt`
 - `data/synthetic/registers/document-register.csv`
 
+The automated test suite additionally generates synthetic PDF and DOCX
+documents at runtime to verify their complete ingestion and processing path
+without storing generated binary fixtures in Git.
+
 ### Ingest the documents
 
 Generate a validated ingestion manifest:
@@ -174,7 +186,7 @@ The ingestion manifest contains:
 
 ### Process the ingestion manifest
 
-Convert the acquired TXT and CSV documents into normalized records:
+Convert the acquired documents into normalized records:
 
 ```bash
 document-rag process-local data/synthetic \
@@ -201,7 +213,8 @@ Processing failures: 0
 Ingestion failures: 0
 ```
 
-With the current synthetic fixtures, the processing batch contains:
+With the repository's current TXT and CSV fixtures, the processing batch
+contains:
 
 ```text
 Documents: 2
@@ -220,6 +233,8 @@ The processing artifact preserves:
 - Stable segment identities and ordinals
 - Plain-text source-line ranges
 - CSV record locations and attributes
+- PDF page numbers and extraction metadata
+- DOCX block, paragraph, table, and row locations
 - Recoverable processing failures
 - Upstream ingestion-failure counts
 
@@ -247,6 +262,10 @@ python -m bandit -q -r src
 python -m build
 ```
 
+The test suite includes a complete synthetic PDF and DOCX integration path
+covering local discovery, metadata generation, manifest construction, parser
+selection, normalized extraction, and recoverable batch execution.
+
 The CI workflow runs on Windows and Ubuntu with Python 3.11 and 3.12. It checks
 linting, formatting, strict typing, tests, coverage, security scanning, and
 distribution builds.
@@ -272,16 +291,17 @@ Implemented:
 - Normalized document and segment contracts
 - Deterministic TXT extraction
 - Deterministic CSV extraction
-- Typed parser registry
+- Page-aware PDF text extraction
+- Ordered DOCX paragraph and table extraction
+- Typed parser registry for TXT, CSV, PDF, and DOCX
 - Recoverable batch processing
 - Stable processing-batch identities
 - Validated JSON batch persistence
 - Local processing CLI
+- End-to-end PDF and DOCX pipeline integration testing
 
 Remaining Phase 2 work:
 
-- PDF parsing
-- DOCX parsing
 - OCR fallback design and adapter boundary
 - Chunking with page and source traceability
 - Duplicate-content handling across sources
@@ -336,9 +356,10 @@ Remaining Phase 2 work:
 
 ## Project status
 
-Phase 1 is complete and merged. Phase 2 now provides deterministic TXT and CSV
-processing, typed parser selection, recoverable batch execution, validated
-processing artifacts, and an end-to-end local command-line workflow.
+Phase 1 is complete and merged. Phase 2 now provides deterministic TXT, CSV,
+PDF, and DOCX processing; typed parser selection; recoverable batch execution;
+validated processing artifacts; and end-to-end local and integration-tested
+processing workflows.
 
-PDF, DOCX, OCR, chunking, lakehouse representation, retrieval, RAG, and cloud
-adapters remain planned work.
+OCR, chunking, cross-source duplicate handling, lakehouse representation,
+retrieval, grounded generation, and cloud adapters remain planned work.

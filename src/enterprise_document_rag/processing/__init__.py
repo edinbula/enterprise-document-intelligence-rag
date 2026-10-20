@@ -8,12 +8,18 @@ from enterprise_document_rag.processing.batch import (
 from enterprise_document_rag.processing.csv_parser import (
     parse_csv,
 )
+from enterprise_document_rag.processing.docx_parser import (
+    parse_docx,
+)
 from enterprise_document_rag.processing.models import (
     NormalizedSegment,
     ProcessedDocument,
     ProcessorIdentity,
     SegmentKind,
     SegmentLocation,
+)
+from enterprise_document_rag.processing.pdf_parser import (
+    parse_pdf,
 )
 from enterprise_document_rag.processing.persistence import (
     read_processing_batch,
@@ -44,6 +50,8 @@ __all__ = [
     "normalize_plain_text",
     "parse_csv",
     "parse_document",
+    "parse_docx",
+    "parse_pdf",
     "parse_plain_text",
     "process_local_manifest",
     "read_processing_batch",

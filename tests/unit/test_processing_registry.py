@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from docx import Document as DocxDocument
 
 from enterprise_document_rag.ingestion.local import (
     build_local_metadata,
@@ -13,8 +14,14 @@ from enterprise_document_rag.ingestion.models import (
 from enterprise_document_rag.processing.csv_parser import (
     parse_csv,
 )
+from enterprise_document_rag.processing.docx_parser import (
+    parse_docx,
+)
 from enterprise_document_rag.processing.models import (
     ProcessedDocument,
+)
+from enterprise_document_rag.processing.pdf_parser import (
+    parse_pdf,
 )
 from enterprise_document_rag.processing.registry import (
     DEFAULT_PARSER_REGISTRY,
@@ -56,7 +63,7 @@ def create_csv_source(
 ) -> tuple[Path, DocumentMetadata]:
     document = tmp_path / "register.csv"
     document.write_text(
-        ("document_id,title\nPOL-001,Access Control Policy\n"),
+        "document_id,title\nPOL-001,Access Control Policy\n",
         encoding="utf-8",
     )
     metadata = build_local_metadata(
@@ -65,6 +72,24 @@ def create_csv_source(
         source_id="synthetic-documents",
     )
     return document, metadata
+
+
+def create_docx_source(
+    tmp_path: Path,
+) -> tuple[Path, DocumentMetadata]:
+    path = tmp_path / "policy.docx"
+    document = DocxDocument()
+    document.add_paragraph(
+        "Synthetic access-control policy.",
+    )
+    document.save(str(path))
+
+    metadata = build_local_metadata(
+        path,
+        tmp_path,
+        source_id="synthetic-documents",
+    )
+    return path, metadata
 
 
 class RecordingParser:
@@ -93,12 +118,16 @@ class RecordingParser:
 def test_default_registry_exposes_stable_supported_formats() -> None:
     assert DEFAULT_PARSER_REGISTRY.supported_formats == (
         DocumentFormat.CSV,
+        DocumentFormat.DOCX,
+        DocumentFormat.PDF,
         DocumentFormat.TXT,
     )
 
 
-def test_returns_registered_parser() -> None:
+def test_returns_registered_parsers() -> None:
     assert DEFAULT_PARSER_REGISTRY.get_parser(DocumentFormat.CSV) is parse_csv
+    assert DEFAULT_PARSER_REGISTRY.get_parser(DocumentFormat.DOCX) is parse_docx
+    assert DEFAULT_PARSER_REGISTRY.get_parser(DocumentFormat.PDF) is parse_pdf
     assert DEFAULT_PARSER_REGISTRY.get_parser(DocumentFormat.TXT) is parse_plain_text
 
 
@@ -115,7 +144,7 @@ def test_routes_plain_text_through_default_registry(
 
     assert processed.processor.name == "plain-text-parser"
     assert processed.processed_at == PROCESSED_AT
-    assert processed.segments[0].text == ("Synthetic access-control policy.")
+    assert processed.segments[0].text == "Synthetic access-control policy."
 
 
 def test_routes_csv_through_default_registry(
@@ -132,6 +161,22 @@ def test_routes_csv_through_default_registry(
     assert processed.processor.name == "csv-parser"
     assert processed.processed_at == PROCESSED_AT
     assert processed.segments[0].text == ("document_id: POL-001\ntitle: Access Control Policy")
+
+
+def test_routes_docx_through_default_registry(
+    tmp_path: Path,
+) -> None:
+    document, metadata = create_docx_source(tmp_path)
+
+    processed = parse_document(
+        document,
+        metadata,
+        processed_at=PROCESSED_AT,
+    )
+
+    assert processed.processor.name == "python-docx-parser"
+    assert processed.processed_at == PROCESSED_AT
+    assert processed.segments[0].text == "Synthetic access-control policy."
 
 
 def test_custom_registry_forwards_all_arguments(
@@ -173,12 +218,16 @@ def test_supported_formats_use_lexical_order() -> None:
     registry = ParserRegistry(
         {
             DocumentFormat.TXT: parse_plain_text,
+            DocumentFormat.DOCX: parse_docx,
             DocumentFormat.CSV: parse_csv,
+            DocumentFormat.PDF: parse_pdf,
         }
     )
 
     assert registry.supported_formats == (
         DocumentFormat.CSV,
+        DocumentFormat.DOCX,
+        DocumentFormat.PDF,
         DocumentFormat.TXT,
     )
 
@@ -197,14 +246,14 @@ def test_rejects_unsupported_document_format(
     document, metadata = create_text_source(tmp_path)
     unsupported = metadata.model_copy(
         update={
-            "document_format": DocumentFormat.PDF,
-            "media_type": "application/pdf",
+            "document_format": DocumentFormat.IMAGE,
+            "media_type": "image/png",
         }
     )
 
     with pytest.raises(
         ValueError,
-        match="unsupported document format: pdf",
+        match="unsupported document format: image",
     ):
         parse_document(
             document,
